@@ -21,6 +21,41 @@ type GenesisValidator struct {
 	Name   string        `json:"name"`
 }
 
+// Encode PubKey based on crypto Codec
+func (gv *GenesisValidator) MarshalJSON() ([]byte, error) {
+	type GenesisValidatorAlias GenesisValidator
+	return json.Marshal(&struct {
+		PubKey []byte `json:"pub_key"`
+		*GenesisValidatorAlias
+	}{
+		PubKey: gv.PubKey.Bytes(),
+		GenesisValidatorAlias: (*GenesisValidatorAlias)(gv),
+	})
+}
+
+// Decode PubKey based on crypto Codec
+func (gv *GenesisValidator) UnmarshalJSON(enc []byte) error {
+	type GenesisValidatorAlias GenesisValidator
+	ref := &struct {
+		PubKey []byte `json:"pub_key"`
+		*GenesisValidatorAlias
+	}{
+		GenesisValidatorAlias: (*GenesisValidatorAlias)(gv),
+	}
+
+	if err := json.Unmarshal(enc, &ref); err != nil {
+		return err
+	}
+
+	pubkey, err := crypto.PubKeyFromBytes(ref.PubKey)
+	if err != nil {
+		return err
+	}
+	gv.PubKey = pubkey
+
+	return nil
+}
+
 // GenesisDoc defines the initial conditions for a tendermint blockchain, in particular its validator set.
 type GenesisDoc struct {
 	GenesisTime     time.Time          `json:"genesis_time"`

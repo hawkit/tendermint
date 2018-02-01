@@ -67,6 +67,50 @@ type PrivValidatorFS struct {
 	mtx      sync.Mutex
 }
 
+// Encode PubKey and PrivKey based on crypto Codec
+func (pv *PrivValidatorFS) MarshalJSON() ([]byte, error) {
+	type PrivValidatorFSAlias PrivValidatorFS
+	return json.Marshal(&struct {
+		PubKey  []byte `json:"pub_key"`
+		PrivKey []byte `json:"priv_key"`
+		*PrivValidatorFSAlias
+	}{
+		PubKey: pv.PubKey.Bytes(),
+		PrivKey: pv.PrivKey.Bytes(),
+		PrivValidatorFSAlias: (*PrivValidatorFSAlias)(pv),
+	})
+}
+
+// Decode PubKey and PrivKey based on crypto Codec
+func (pv *PrivValidatorFS) UnmarshalJSON(enc []byte) error {
+	type PrivValidatorFSAlias PrivValidatorFS
+	ref := &struct {
+		PubKey  []byte `json:"pub_key"`
+		PrivKey []byte `json:"priv_key"`
+		*PrivValidatorFSAlias
+	}{
+		PrivValidatorFSAlias: (*PrivValidatorFSAlias)(pv),
+	}
+
+	if err := json.Unmarshal(enc, &ref); err != nil {
+		return err
+	}
+
+	pubkey, err := crypto.PubKeyFromBytes(ref.PubKey)
+	if err != nil {
+		return err
+	}
+	pv.PubKey = pubkey
+
+	privkey, err := crypto.PrivKeyFromBytes(ref.PubKey)
+	if err != nil {
+		return err
+	}
+	pv.PrivKey = privkey
+
+	return nil
+}
+
 // Signer is an interface that defines how to sign messages.
 // It is the caller's duty to verify the msg before calling Sign,
 // eg. to avoid double signing.
